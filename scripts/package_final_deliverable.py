@@ -1,4 +1,117 @@
-# ERP-Lite v1.0 — منتج نهائي قابل للتسليم
+#!/usr/bin/env python3
+"""
+ERP-Lite v1.0 — Final Deliverable Packaging Script
+====================================================
+Produces a single self-contained zip with the full project (frontend source +
+production build, backend source, SQL migrations, run scripts, docs) plus a
+top-level README.md outside the zip for quick reference.
+
+Output:
+  /home/z/my-project/download/ERP-Lite-v1.0.zip
+  /home/z/my-project/download/README.md
+"""
+from __future__ import annotations
+
+import shutil
+import zipfile
+from pathlib import Path
+
+PROJECT_ROOT = Path("/home/z/my-project")
+DOWNLOAD_DIR = PROJECT_ROOT / "download"
+STAGING_DIR = PROJECT_ROOT / "scripts" / "_staging_erplite"
+ZIP_OUT = DOWNLOAD_DIR / "ERP-Lite-v1.0.zip"
+README_OUT = DOWNLOAD_DIR / "README.md"
+
+# ---------------------------------------------------------------------------
+# 1. Prepare staging directory
+# ---------------------------------------------------------------------------
+if STAGING_DIR.exists():
+    shutil.rmtree(STAGING_DIR)
+STAGING_DIR.mkdir(parents=True)
+
+# ---------------------------------------------------------------------------
+# 2. Copy backend (excluding __pycache__, .pytest_cache, .venv, *.pyc)
+# ---------------------------------------------------------------------------
+backend_src = PROJECT_ROOT / "erplite-backend"
+backend_dst = STAGING_DIR / "erplite-backend"
+shutil.copytree(
+    backend_src,
+    backend_dst,
+    ignore=shutil.ignore_patterns(
+        "__pycache__",
+        "*.pyc",
+        ".pytest_cache",
+        ".venv",
+        "venv",
+        "*.egg-info",
+        ".mypy_cache",
+        ".ruff_cache",
+    ),
+)
+print(f"[ok] backend copied: {sum(1 for _ in backend_dst.rglob('*'))} entries")
+
+# ---------------------------------------------------------------------------
+# 3. Copy frontend (excluding node_modules, dist cache, but INCLUDING dist build)
+# ---------------------------------------------------------------------------
+frontend_src = PROJECT_ROOT / "erplite-frontend"
+frontend_dst = STAGING_DIR / "erplite-frontend"
+shutil.copytree(
+    frontend_src,
+    frontend_dst,
+    ignore=shutil.ignore_patterns(
+        "node_modules",
+        ".vite",
+        "*.log",
+        ".DS_Store",
+    ),
+)
+print(f"[ok] frontend copied: {sum(1 for _ in frontend_dst.rglob('*'))} entries")
+print(f"     dist size: {sum(f.stat().st_size for f in (frontend_dst / 'dist').rglob('*') if f.is_file()) // 1024} KB")
+
+# ---------------------------------------------------------------------------
+# 4. Copy SQL migrations
+# ---------------------------------------------------------------------------
+sql_src = PROJECT_ROOT / "sql"
+sql_dst = STAGING_DIR / "sql"
+shutil.copytree(sql_src, sql_dst)
+print(f"[ok] sql copied: {len(list(sql_dst.glob('*.sql')))} migration files")
+
+# ---------------------------------------------------------------------------
+# 5. Copy run scripts (start_backend, start_frontend, start_pg, smoke tests)
+# ---------------------------------------------------------------------------
+scripts_src = PROJECT_ROOT / "scripts"
+scripts_dst = STAGING_DIR / "scripts"
+shutil.copytree(
+    scripts_src,
+    scripts_dst,
+    ignore=shutil.ignore_patterns("_staging_erplite", "__pycache__", "*.pyc"),
+)
+print(f"[ok] scripts copied: {len(list(scripts_dst.glob('*.py')))} python scripts")
+
+# ---------------------------------------------------------------------------
+# 6. Copy key documentation
+# ---------------------------------------------------------------------------
+docs_to_copy = [
+    "00-START-HERE-STRICT-PROMPT.md",
+    "BACKEND_ARCHITECTURE.md",
+    "ERP-Lite-CHANGELOG.md",
+    "ERP-Lite-Frontend-Specification.md",
+    "HOW-TO-FINISH-BACKEND.md",
+    "ERP_LITE_V1_FINAL_AUDIT.md",
+    "FRONTEND_FINAL_ACCEPTANCE.md",
+]
+docs_dst = STAGING_DIR / "docs"
+docs_dst.mkdir(exist_ok=True)
+for fname in docs_to_copy:
+    src = PROJECT_ROOT / fname
+    if src.exists():
+        shutil.copy2(src, docs_dst / fname)
+print(f"[ok] docs copied: {len(list(docs_dst.glob('*.md')))} files")
+
+# ---------------------------------------------------------------------------
+# 7. Generate top-level README inside the package (Arabic-first)
+# ---------------------------------------------------------------------------
+PKG_README = """# ERP-Lite v1.0 — منتج نهائي قابل للتسليم
 
 > نظام ERP مبسط عربي-أول (Arabic-first) RTL، مبني بـ React + FastAPI + PostgreSQL.
 
@@ -162,3 +275,47 @@ pytest tests/         # يتطلب PostgreSQL حية بالتكوين أعلاه
 
 ## الترخيص
 ملكي — مشروع ERP-Lite داخلي.
+"""
+(STAGING_DIR / "README.md").write_text(PKG_README, encoding="utf-8")
+print("[ok] package README.md written")
+
+# ---------------------------------------------------------------------------
+# 8. Create the zip
+# ---------------------------------------------------------------------------
+if ZIP_OUT.exists():
+    ZIP_OUT.unlink()
+
+PKG_ROOT = "ERP-Lite-v1.0"
+with zipfile.ZipFile(ZIP_OUT, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    for path in STAGING_DIR.rglob("*"):
+        if path.is_file():
+            arcname = f"{PKG_ROOT}/{path.relative_to(STAGING_DIR)}"
+            zf.write(path, arcname)
+
+zip_size_mb = ZIP_OUT.stat().st_size / (1024 * 1024)
+print(f"[ok] zip created: {ZIP_OUT} ({zip_size_mb:.2f} MB)")
+
+# ---------------------------------------------------------------------------
+# 9. Create the standalone README at download root
+# ---------------------------------------------------------------------------
+README_OUT.write_text(PKG_README, encoding="utf-8")
+print(f"[ok] standalone README.md written: {README_OUT}")
+
+# ---------------------------------------------------------------------------
+# 10. Clean up staging
+# ---------------------------------------------------------------------------
+shutil.rmtree(STAGING_DIR)
+print("[ok] staging cleaned up")
+
+# ---------------------------------------------------------------------------
+# 11. Final listing
+# ---------------------------------------------------------------------------
+print("\n=== FINAL DOWNLOAD CONTENTS ===")
+for f in sorted(DOWNLOAD_DIR.iterdir()):
+    size = f.stat().st_size
+    if size > 1024 * 1024:
+        print(f"  {f.name:40s} {size / (1024*1024):7.2f} MB")
+    elif size > 1024:
+        print(f"  {f.name:40s} {size / 1024:7.1f} KB")
+    else:
+        print(f"  {f.name:40s} {size:7d} B")

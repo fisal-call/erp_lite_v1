@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+html { direction: rtl; }
+body {
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+/* Reusable input style — applied by every form field via className="input" */
+.input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #fff;
+  color: #111827;
+  font-size: 0.875rem;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.input:disabled {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+/* LTR helper for content that should always render left-to-right inside an
+   RTL page (emails, phone numbers, dates, ISO codes, UUIDs). */
+.ltr-text {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: embed;
+}
+
+/* Print styles: hide the sidebar and topbar, expand main content, and
+   strip button hover states so the printout reads cleanly.
+   Used by StockBalancePage + SalesOrderDetailPage + PurchaseOrderDetailPage +
+   JournalEntryDetailPage (each has a "طباعة" button calling window.print()). */
+@media print {
+  /* Hide app chrome */
+  aside,
+  header,
+  button,
+  .no-print {
+    display: none !important;
+  }
+  /* Reset main layout for full-page printing */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  /* Ensure tables break cleanly across pages */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  /* Cards lose their shadow on print */
+  .bg-white {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  /* Force colors to print (chrome default = no background colors on print) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Smooth focus ring for keyboard users on interactive elements */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
